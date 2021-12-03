@@ -1,26 +1,27 @@
+// Tuning Parameters 
+var WALL_STRENGTH = 50;
+var RANDOMNESS = 0.1;
+var MOUSE_STRENGTH = 300;
+var NUM_ANTS = 2000;
+var SPEED = 1;
+
 AntSimulator();
 
 function AntSimulator() {
+    window.requestAnimationFrame(drawAnts);
     const c = document.getElementById("myCanvas");
-    const shadowCanvas = document.createElement("canvas");
     var ctx = c.getContext("2d");
-    var sCTX = shadowCanvas.getContext("2d");
-    var WALL_STRENGTH = 2;
-    var RANDOMNESS = 0.1;
-    var REPEL_STRENGTH = 3;
-    var NUM_ANTS = 1000;
-    var SPEED = 0.5;
 
     // Canvas resizing operations
-    ctx.canvas.width  = window.innerWidth;
-    sCTX.canvas.width  = window.innerWidth;
-    ctx.canvas.height = window.innerHeight;
-    sCTX.canvas.height = window.innerHeight;
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    ctx.canvas.width = w;
+    ctx.canvas.height = h;
     window.onresize = () => {
-        ctx.canvas.width = window.innerWidth;
-        sCTX.canvas.width = window.innerWidth;
-        ctx.canvas.height = window.innerHeight;
-        sCTX.canvas.height = window.innerHeight;
+        w = window.innerWidth;
+        ctx.canvas.width = w;
+        h = window.innerHeight;
+        ctx.canvas.height = h;
     };
 
     // Mouse tracking
@@ -30,14 +31,31 @@ function AntSimulator() {
         mousePos.y = mouseEvent.clientY;
     }
 
+    // Fires up some ants
+    let ants = makeAnts();
+
+    // Play and pause
+    var playState = true;
+    window.onkeydown = (keyEvent) => {
+        playState = !playState;
+        if(playState){
+            animationID = window.requestAnimationFrame(drawAnts)
+        }else {
+            console.log("cancelling animation");
+            window.cancelAnimationFrame(animationID);
+        }
+    }
+
+    // Toggle repel or attract
+    var repel = 1;
+    window.onmousedown = (mouseEvent) => {
+        repel = repel * -1;
+    }
+
     // A second off screen canvas to store and preprocess pheromone trail deposits
     var trailCanvas = document.createElement('canvas');
     trailCanvas.width = c.width;
     trailCanvas.height = c.height;
-
-    // Fires up some ants and enters the simulation loop
-    let ants = makeAnts();
-    window.requestAnimationFrame(drawAnts);
 
     // Generates and returns a list of random ants
     function makeAnts() {
@@ -55,7 +73,7 @@ function AntSimulator() {
     // Renders a list of ants
     function drawAnts() {
         // paint over old frame
-        ctx.clearRect(0,0,sCTX.canvas.width, sCTX.canvas.height);
+        ctx.clearRect(0, 0, w, h);
         // Loop Through Ants
         for (var a of ants) {
             // Add scaled wall force
@@ -63,15 +81,18 @@ function AntSimulator() {
             // Add scaled random wandering force
             a.velocity = a.velocity.add(Vector.randomDirection().multiply(RANDOMNESS));
             // Add repulsion from mouse
-            a.velocity = a.velocity.add(a.repulsiveForce(mousePos).multiply(REPEL_STRENGTH));
-            // Normalize
+            a.velocity = a.velocity.add(a.pointForce(mousePos, repel).multiply(MOUSE_STRENGTH));
+            // Normalize velocity
             a.velocity = a.velocity.unit();
-            // Increment by velocity
+
+            // Increment by velocity and draw
             a.position = a.position.add(a.velocity.multiply(SPEED));
-            // Draw!
             a.render(ctx)
         };
-        window.requestAnimationFrame(drawAnts);
+        if(playState){
+            window.requestAnimationFrame(drawAnts);
+        }
+        
     }
 
     // A single ant
@@ -84,31 +105,30 @@ function AntSimulator() {
         // Draws the ant onto the given context
         this.render = function (ctx) {
             ctx.beginPath();
-            ctx.arc(Math.floor(this.position.x), Math.floor(this.position.y), 5, 0, Math.PI * 2, true);
+            ctx.arc(Math.floor(this.position.x), Math.floor(this.position.y), 6, 0, Math.PI * 2, true);
             ctx.closePath();
             ctx.fillStyle = this.color;
             ctx.fill();
         }
 
         // Calculate the repulsive force by walls
-        this.wallForce = function(){
+        this.wallForce = function () {
             let net = new Vector();
-            if(this.position.x < 100){
-                net = net.add(Vector.right.divide(Math.abs(this.position.x)));
-            }if(this.position.x > ctx.canvas.width - 100){
-                net = net.add(Vector.left.divide(Math.abs(ctx.canvas.width - this.position.x)));
-            }if(this.position.y < 100){
-                net = net.add(Vector.down.divide(Math.abs(this.position.y)));
-            }if(this.position.y > ctx.canvas.height - 100){
-                net = net.add(Vector.up.divide(Math.abs(ctx.canvas.height - this.position.y)));
-            }
+
+            net = net.add(this.pointForce(new Vector(0, this.position.y))); // left wall
+            net = net.add(this.pointForce(new Vector(w, this.position.y))); // right wall
+            net = net.add(this.pointForce(new Vector(this.position.x, 0))); // top wall
+            net = net.add(this.pointForce(new Vector(this.position.x, h))); // top wall
+
             return net;
         }
 
-        // Calculate a repulsive force from a point
-        this.repulsiveForce = function(b){
-            let a2b = this.position.subtract(b); 
-            return a2b.unit().divide(a2b.length());
+        // Calculate an inverse square repulsive force from a point
+        this.pointForce = function (b, repel = 1) {
+            let a2b = this.position.subtract(b);
+            let dist = a2b.length();
+            return a2b.unit().divide(dist*dist).multiply(repel);
         }
+
     }
 }
