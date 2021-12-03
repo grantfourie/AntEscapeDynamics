@@ -34,9 +34,16 @@ Vector.prototype = {
         return Math.atan2(this.x, this.y);
     }
 }
+Vector.fromAngles = function (theta) {
+    return new Vector(Math.cos(theta), Math.sin(theta));
+};
 Vector.randomDirection = function () {
     return Vector.fromAngles(Math.random() * Math.PI * 2, Math.asin(Math.random() * 2 - 1));
 };
-Vector.lerp = function(a, b, fraction) {
+Vector.lerp = function (a, b, fraction) {
     return b.subtract(a).multiply(fraction).add(a);
-  };
+};
+Vector.up = new Vector(0, -1);
+Vector.down = new Vector(0, 1);
+Vector.left = new Vector(-1, 0);
+Vector.right = new Vector(1, 0);
