@@ -2,7 +2,7 @@
 var WALL_STRENGTH = 50;
 var RANDOMNESS = 0.1;
 var MOUSE_STRENGTH = 300;
-var NUM_ANTS = 2000;
+var NUM_ANTS = 100;
 var SPEED = 1;
 
 AntSimulator();
@@ -36,6 +36,7 @@ function AntSimulator() {
 
     // Play and pause
     var playState = true;
+    var animationID = 0;
     window.onkeydown = (keyEvent) => {
         playState = !playState;
         if(playState){
@@ -88,6 +89,10 @@ function AntSimulator() {
             // Increment by velocity and draw
             a.position = a.position.add(a.velocity.multiply(SPEED));
             a.render(ctx)
+            if(a.id % 23 == 0){
+                a.drawSensors(ctx);
+            }
+            
         };
         if(playState){
             window.requestAnimationFrame(drawAnts);
@@ -109,6 +114,34 @@ function AntSimulator() {
             ctx.closePath();
             ctx.fillStyle = this.color;
             ctx.fill();
+        }
+
+        // Draw an overlay of the ants "pheromone sensing"
+        this.drawSensors = function(ctx){
+            ctx.save();
+
+            ctx.translate(this.position.x, this.position.y);
+            ctx.rotate(-this.velocity.toAngle());
+
+            ctx.strokeStyle = "red"
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            //ctx.lineTo(36,0);
+            ctx.arc(0,0,36, Math.PI/4, Math.PI /2);
+            ctx.lineTo(0, 0);
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.strokeStyle = "blue"
+            ctx.beginPath();
+            ctx.moveTo(0,0);
+            //ctx.lineTo(0,36);
+            ctx.arc(0,0,36, Math.PI / 2, Math.PI * 0.75)
+            ctx.lineTo(0,0);    
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.restore();
         }
 
         // Calculate the repulsive force by walls
