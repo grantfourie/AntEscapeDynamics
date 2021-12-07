@@ -2,7 +2,7 @@
 var WALL_STRENGTH = 50;
 var RANDOMNESS = 0.2;
 var MOUSE_STRENGTH = 300;
-var SENSE_STRENGTH = 0.1;
+var SENSE_STRENGTH = 0.001;
 var NUM_ANTS = 100;
 var SPEED = 1;
 var BG_IMAGE = new Image();
@@ -64,7 +64,7 @@ function AntSimulator() {
         for (let i = 0; i < NUM_ANTS; i++) {
             let pos = new Vector(Math.random() * c.clientWidth, Math.random() * c.clientHeight);
             let vel = new Vector.randomDirection();
-            let color = "green";//"#" + Math.floor(Math.random() * 16777215).toString(16);
+            let color = "cyan";//"#" + Math.floor(Math.random() * 16777215).toString(16);
             ants.push(new Ant(pos, vel, color, i));
         }
         console.log(ants)
@@ -87,7 +87,7 @@ function AntSimulator() {
             // Add repulsion from mouse
             a.velocity = a.velocity.add(a.pointForce(mousePos, repel).multiply(MOUSE_STRENGTH));
             // Add attraction to color red in bgCTX
-            a.velocity = a.velocity.add(a.senseForce(0,10,20)).multiply(SENSE_STRENGTH);
+            a.velocity = a.velocity.add(a.senseForce(0,10,30)).multiply(SENSE_STRENGTH);
             // Normalize velocity
             a.velocity = a.velocity.unit();
             // Increment by velocity and draw
