@@ -1,9 +1,9 @@
 // Tuning Parameters 
 var WALL_STRENGTH = 50;
-var RANDOMNESS = 0.1;
+var RANDOMNESS = 0.15;
 var MOUSE_STRENGTH = 300;
 var NUM_ANTS = 100;
-var SPEED = 0.7;
+var SPEED = 0.5;
 var BG_IMAGE = new Image();
 BG_IMAGE.src = "./RBY_tiles.png";
 
@@ -11,34 +11,37 @@ AntSimulator();
 
 function AntSimulator() {
     // "Globals"
-    const c = document.getElementById("myCanvas");
-    var ctx = c.getContext("2d");
-    var bgTiles;
+    let c = document.getElementById("antCanvas");
+    let ctx = c.getContext("2d");
+    let bgC = document.getElementById("bgCanvas");
+    let bgCTX = bgC.getContext("2d");
     let ants = makeAnts();
 
     window.requestAnimationFrame(drawAnts);
 
     // Canvas resizing operations
-    var w = window.innerWidth;
-    var h = window.innerHeight;
-    ctx.canvas.width = w;
-    ctx.canvas.height = h;
+    let w = c.width = bgC.width = window.innerWidth;
+    let h = c.height = bgC.height = window.innerHeight;
     window.onresize = () => {
-        w = window.innerWidth;
-        ctx.canvas.width = w;
-        h = window.innerHeight;
-        ctx.canvas.height = h;
+        c.width = bgC.width = w = window.innerWidth;;
+        c.height= bgC.height = h = window.innerHeight;
     };
 
+    //Paint Background and store the bitmap/imageData
+    let tiledBG = bgCTX.createPattern(BG_IMAGE, "repeat");
+    bgCTX.fillStyle = tiledBG;
+    bgCTX.fillRect(0, 0, w, h);
+    bgTiles = bgCTX.getImageData(0, 0, w, h);
+
     // Mouse tracking
-    var mousePos = new Vector;
+    let mousePos = new Vector;
     window.onmousemove = (mouseEvent) => {
         mousePos.x = mouseEvent.clientX;
         mousePos.y = mouseEvent.clientY;
     }
     // Play and pause
-    var playState = true;
-    var animationID = 0;
+    let playState = true;
+    let animationID = 0;
     window.onkeydown = (keyEvent) => {
         playState = !playState;
         if (playState) {
@@ -50,7 +53,7 @@ function AntSimulator() {
     }
 
     // Toggle repel or attract
-    var repel = 1;
+    let repel = 1;
     window.onmousedown = (mouseEvent) => {
         repel = repel * -1;
     }
@@ -71,11 +74,6 @@ function AntSimulator() {
     function drawAnts() {
         // paint over old frame
         ctx.clearRect(0, 0, w, h);
-        //Paint Background and store the bitmap/imageData
-        var tiledBG = ctx.createPattern(BG_IMAGE, "repeat");
-        ctx.fillStyle = tiledBG;
-        ctx.fillRect(0, 0, w, h);
-        bgTiles = ctx.getImageData(0, 0, w, h);
         // Loop Through Ants
         for (var a of ants) {
             // Add scaled wall force
@@ -86,13 +84,11 @@ function AntSimulator() {
             a.velocity = a.velocity.add(a.pointForce(mousePos, repel).multiply(MOUSE_STRENGTH));
             // Normalize velocity
             a.velocity = a.velocity.unit();
-
             // Increment by velocity and draw
             a.position = a.position.add(a.velocity.multiply(SPEED));
             a.render(ctx);
-            a.drawSensors(ctx);
-
         }
+        ants[0].drawSensors(ctx);
         if (playState) {
             window.requestAnimationFrame(drawAnts);
         }
@@ -121,17 +117,10 @@ function AntSimulator() {
 
             ctx.translate(this.position.x, this.position.y);
             // Draw Left Sensory Cone
-            ctx.rotate(-this.velocity.toAngle() - Math.PI / 4);
+            ctx.rotate(-this.velocity.toAngle());
             let u = new Vector.fromAngles((Math.PI/2 - Math.PI/8)).multiply(30);
             let v = new Vector.fromAngles((Math.PI/2 + Math.PI/8)).multiply(30);
-            drawCone(sense(u,v), 30, Math.PI / 4);
-            //Draw Middle Sensory Cone
-            ctx.rotate(Math.PI / 4);
-            drawCone("purple", 30, Math.PI / 4);
-            // Draw Right Sensory Cone
-            ctx.rotate(Math.PI / 4);
-            drawCone("blue", 30, Math.PI / 4);
-
+            drawCone("cyan", u, v, 30);
             ctx.restore();
         }
 
@@ -157,11 +146,12 @@ function AntSimulator() {
     }
 
     // Draws an upwards directed "sight cone" from the current origin (i.e do transforms before this)
-    function drawCone(color, radius, theta) {
+    function drawCone(color, u, v, radius) {
         ctx.strokeStyle = color;
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.arc(0, 0, radius, (Math.PI - theta) / 2, (Math.PI + theta) / 2);
+        ctx.lineTo(u.x, u.y);
+        ctx.lineTo(v.x,v.y);
         ctx.closePath();
         ctx.stroke();
     }
@@ -174,24 +164,30 @@ function AntSimulator() {
         // 1. Transform the canvas by the basis vectors that define a sight cone
         // 2. The triangle that was between the basis vectors now lies between the unit triangle in the first quadrant
         ctx.transform(u.x, v.x, 0, u.y, v.y, 0);
-        var coneSize = Math.floor(u.length());
-        let rSum,gSum, bSum = 0;
+        let coneSize = Math.floor(u.length());
+        let rSum,gSum,bSum = 0;
 
         for (let x = 0; x < coneSize; x++) {
             for (let y = 0; y < coneSize; y++) {
-                var [r,g,b,a] = getColorRGBA(x,y);
+                
+                
+                console.log(getColorRGBA(x,y));
+                /* 
                 rSum += r;
                 gSum += g;
                 bSum += b;
+                */
             }
         }
+        /*
         let NumPixels = (coneSize*coneSize);
         rSum = rSum/NumPixels;
         gSum = gSum/NumPixels;
         bSum = bSum/NumPixels;
-        ctx.restore(); 
         var hexColor = RGBToHex(rSum, gSum, bSum);
-        return hexColor;
+        */
+       ctx.restore();
+        return "magenta";
     }
 
     function getColorRGBA(x, y) {
