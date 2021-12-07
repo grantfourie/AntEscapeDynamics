@@ -1,9 +1,10 @@
 // Tuning Parameters 
 var WALL_STRENGTH = 50;
-var RANDOMNESS = 0.15;
+var RANDOMNESS = 0.2;
 var MOUSE_STRENGTH = 300;
+var SENSE_STRENGTH = 0.1;
 var NUM_ANTS = 100;
-var SPEED = 0.5;
+var SPEED = 1;
 var BG_IMAGE = new Image();
 BG_IMAGE.src = "./RBY_tiles.png";
 
@@ -24,14 +25,14 @@ function AntSimulator() {
     let h = c.height = bgC.height = window.innerHeight;
     window.onresize = () => {
         c.width = bgC.width = w = window.innerWidth;;
-        c.height= bgC.height = h = window.innerHeight;
+        c.height = bgC.height = h = window.innerHeight;
     };
 
     //Paint Background and store the bitmap/imageData
-    let tiledBG = bgCTX.createPattern(BG_IMAGE, "repeat");
+    var tiledBG = bgCTX.createPattern(BG_IMAGE, "repeat");
+    var bgTiles = bgCTX.getImageData(0, 0, w, h);
     bgCTX.fillStyle = tiledBG;
     bgCTX.fillRect(0, 0, w, h);
-    bgTiles = bgCTX.getImageData(0, 0, w, h);
 
     // Mouse tracking
     let mousePos = new Vector;
@@ -73,6 +74,9 @@ function AntSimulator() {
     // Renders a list of ants
     function drawAnts() {
         // paint over old frame
+        tiledBG = bgCTX.createPattern(BG_IMAGE, "repeat");
+        bgCTX.fillStyle = tiledBG;
+        bgCTX.fillRect(0, 0, w, h);
         ctx.clearRect(0, 0, w, h);
         // Loop Through Ants
         for (var a of ants) {
@@ -82,16 +86,19 @@ function AntSimulator() {
             a.velocity = a.velocity.add(Vector.randomDirection().multiply(RANDOMNESS));
             // Add repulsion from mouse
             a.velocity = a.velocity.add(a.pointForce(mousePos, repel).multiply(MOUSE_STRENGTH));
+            // Add attraction to color red in bgCTX
+            a.velocity = a.velocity.add(a.senseForce(0,10,20)).multiply(SENSE_STRENGTH);
             // Normalize velocity
             a.velocity = a.velocity.unit();
             // Increment by velocity and draw
             a.position = a.position.add(a.velocity.multiply(SPEED));
             a.render(ctx);
         }
-        ants[0].drawSensors(ctx);
+        ants[0].senseForce();
         if (playState) {
             window.requestAnimationFrame(drawAnts);
         }
+        bgTiles = ctx.getImageData(0, 0, w, h);
 
     }
 
@@ -118,8 +125,8 @@ function AntSimulator() {
             ctx.translate(this.position.x, this.position.y);
             // Draw Left Sensory Cone
             ctx.rotate(-this.velocity.toAngle());
-            let u = new Vector.fromAngles((Math.PI/2 - Math.PI/8)).multiply(30);
-            let v = new Vector.fromAngles((Math.PI/2 + Math.PI/8)).multiply(30);
+            let u = new Vector.fromAngles((Math.PI / 2 - Math.PI / 8)).multiply(30);
+            let v = new Vector.fromAngles((Math.PI / 2 + Math.PI / 8)).multiply(30);
             drawCone("cyan", u, v, 30);
             ctx.restore();
         }
@@ -142,6 +149,30 @@ function AntSimulator() {
             let dist = a2b.length();
             return a2b.unit().divide(dist * dist).multiply(repel);
         }
+        // Samples n times radially in front of the ant, and returns a unit vector that heads towards
+        // the highest concentration of the desired color
+        this.senseForce = function(colorChannel = 0, samples = 10, distance = 30){
+            let incrAngle = (Math.PI / 2) / (samples - 1);
+
+            let midAngle = - this.velocity.toAngle();
+            let startAngle = midAngle + Math.PI / 4;
+            let weightSum = 0;
+            //ctx.strokeStyle = "grey";
+
+            for (let i = 0; i < samples; i++) {
+                //ctx.moveTo(this.position.x,this.position.y);
+                let sensePoint = Vector.fromAngles(startAngle + incrAngle * i).multiply(distance);
+                sensePoint = sensePoint.add(this.position);
+                //ctx.lineTo(sensePoint.x, sensePoint.y);
+
+                let weight = getColorRGB(sensePoint.x, sensePoint.y,bgCTX)[colorChannel] / 255;
+                weightSum += weight * i;
+                
+            }
+            //ctx.stroke();
+            let result = startAngle + incrAngle * weightSum;
+            return Vector.fromAngles(result);
+        }
 
     }
 
@@ -151,65 +182,29 @@ function AntSimulator() {
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(u.x, u.y);
-        ctx.lineTo(v.x,v.y);
+        ctx.lineTo(v.x, v.y);
         ctx.closePath();
         ctx.stroke();
     }
 
-    // Finds the average color between two 
-    // equal length vectors from the origin
-    function sense(u, v) {
-        ctx.save();
-        // Big boy linear algebra time
-        // 1. Transform the canvas by the basis vectors that define a sight cone
-        // 2. The triangle that was between the basis vectors now lies between the unit triangle in the first quadrant
-        ctx.transform(u.x, v.x, 0, u.y, v.y, 0);
-        let coneSize = Math.floor(u.length());
-        let rSum,gSum,bSum = 0;
-
-        for (let x = 0; x < coneSize; x++) {
-            for (let y = 0; y < coneSize; y++) {
-                
-                
-                console.log(getColorRGBA(x,y));
-                /* 
-                rSum += r;
-                gSum += g;
-                bSum += b;
-                */
-            }
-        }
-        /*
-        let NumPixels = (coneSize*coneSize);
-        rSum = rSum/NumPixels;
-        gSum = gSum/NumPixels;
-        bSum = bSum/NumPixels;
-        var hexColor = RGBToHex(rSum, gSum, bSum);
-        */
-       ctx.restore();
-        return "magenta";
-    }
-
-    function getColorRGBA(x, y) {
+    function getColorRGB(x, y, context) {
         // Pixels are stored in a 1D array as 4 byte wide integers
-        let index = y * w * 4 + x * 4;
-        
-        let red = bgTiles[index];
-        return [red, red + 1, red + 2, red + 3];
+        let pixel = context.getImageData(x,y,1,1).data;
+        return [pixel[0],pixel[1],pixel[2]];
     }
 
-    function RGBToHex(r,g,b) {
+    function RGBToHex(r, g, b) {
         r = r.toString(16);
         g = g.toString(16);
         b = b.toString(16);
-      
+
         if (r.length == 1)
-          r = "0" + r;
+            r = "0" + r;
         if (g.length == 1)
-          g = "0" + g;
+            g = "0" + g;
         if (b.length == 1)
-          b = "0" + b;
-      
+            b = "0" + b;
+
         return "#" + r + g + b;
-      }
+    }
 }
