@@ -1,10 +1,11 @@
 // Tuning Parameters 
 var WALL_STRENGTH = 50;
-var RANDOMNESS = 0.2;
-var MOUSE_STRENGTH = 300;
-var SENSE_STRENGTH = 0.001;
-var NUM_ANTS = 100;
-var SPEED = 1;
+var RANDOMNESS = 0.3;
+var MOUSE_STRENGTH = 200;
+var SENSE_STRENGTH = 0.2;
+var TRAIL_FADE_RATE = 0.9;
+var NUM_ANTS = 500;
+var SPEED = 0.5;
 var BG_IMAGE = new Image();
 BG_IMAGE.src = "./RBY_tiles.png";
 
@@ -27,12 +28,6 @@ function AntSimulator() {
         c.width = bgC.width = w = window.innerWidth;;
         c.height = bgC.height = h = window.innerHeight;
     };
-
-    //Paint Background and store the bitmap/imageData
-    var tiledBG = bgCTX.createPattern(BG_IMAGE, "repeat");
-    var bgTiles = bgCTX.getImageData(0, 0, w, h);
-    bgCTX.fillStyle = tiledBG;
-    bgCTX.fillRect(0, 0, w, h);
 
     // Mouse tracking
     let mousePos = new Vector;
@@ -74,11 +69,18 @@ function AntSimulator() {
     // Renders a list of ants
     function drawAnts() {
         // paint over old frame
-        tiledBG = bgCTX.createPattern(BG_IMAGE, "repeat");
-        bgCTX.fillStyle = tiledBG;
-        bgCTX.fillRect(0, 0, w, h);
         ctx.clearRect(0, 0, w, h);
-        // Loop Through Ants
+        bgCTX.fillStyle = `rgba(0,0,0,${ TRAIL_FADE_RATE * 0.01})`;
+        bgCTX.fillRect(0,0,w,h);
+
+        // Background options for testing \
+        // 1. A tiled pattern of the given image 
+        //tileBackground(BG_IMAGE);
+
+        // 2. A gradient spot
+        //drawGradientSpot(new Vector(w/2,h/2), 100, [255,0,0]);
+
+        // Loop Through Ants, calculate the forces acting on each one.
         for (var a of ants) {
             // Add scaled wall force
             a.velocity = a.velocity.add(a.wallForce().multiply(WALL_STRENGTH));
@@ -86,23 +88,22 @@ function AntSimulator() {
             a.velocity = a.velocity.add(Vector.randomDirection().multiply(RANDOMNESS));
             // Add repulsion from mouse
             a.velocity = a.velocity.add(a.pointForce(mousePos, repel).multiply(MOUSE_STRENGTH));
-            // Add attraction to color red in bgCTX
-            a.velocity = a.velocity.add(a.senseForce(0,10,30)).multiply(SENSE_STRENGTH);
+            // Add attraction/repulsion to color red in bgCTX
+            a.velocity = a.velocity.add(a.senseForce(0,30, true).multiply(SENSE_STRENGTH));
             // Normalize velocity
             a.velocity = a.velocity.unit();
             // Increment by velocity and draw
             a.position = a.position.add(a.velocity.multiply(SPEED));
+            drawSpot(a.position, 5, [255,0,0]);
             a.render(ctx);
         }
-        ants[0].senseForce();
         if (playState) {
             window.requestAnimationFrame(drawAnts);
         }
         bgTiles = ctx.getImageData(0, 0, w, h);
-
     }
 
-    // A single ant
+    // A single ant and all its associated intelligence
     function Ant(pos, velocity, color, id) {
         this.position = pos;
         this.velocity = velocity;
@@ -116,19 +117,6 @@ function AntSimulator() {
             ctx.closePath();
             ctx.fillStyle = this.color;
             ctx.fill();
-        }
-
-        // Draw an overlay of the ants "pheromone sensing"
-        this.drawSensors = function (ctx) {
-            ctx.save();
-
-            ctx.translate(this.position.x, this.position.y);
-            // Draw Left Sensory Cone
-            ctx.rotate(-this.velocity.toAngle());
-            let u = new Vector.fromAngles((Math.PI / 2 - Math.PI / 8)).multiply(30);
-            let v = new Vector.fromAngles((Math.PI / 2 + Math.PI / 8)).multiply(30);
-            drawCone("cyan", u, v, 30);
-            ctx.restore();
         }
 
         // Calculate the repulsive force by walls
@@ -151,27 +139,23 @@ function AntSimulator() {
         }
         // Samples n times radially in front of the ant, and returns a unit vector that heads towards
         // the highest concentration of the desired color
-        this.senseForce = function(colorChannel = 0, samples = 10, distance = 30){
-            let incrAngle = (Math.PI / 2) / (samples - 1);
+        this.senseForce = function(colorChannel = 0, distance = 30, attract=true){
+            let numSamples = 4;
+            let incrAngle = (Math.PI / 2) / numSamples;
 
             let midAngle = - this.velocity.toAngle();
             let startAngle = midAngle + Math.PI / 4;
-            let weightSum = 0;
-            //ctx.strokeStyle = "grey";
+            let result = new Vector();
+            ctx.strokeStyle = "grey";
 
-            for (let i = 0; i < samples; i++) {
-                //ctx.moveTo(this.position.x,this.position.y);
-                let sensePoint = Vector.fromAngles(startAngle + incrAngle * i).multiply(distance);
-                sensePoint = sensePoint.add(this.position);
-                //ctx.lineTo(sensePoint.x, sensePoint.y);
-
-                let weight = getColorRGB(sensePoint.x, sensePoint.y,bgCTX)[colorChannel] / 255;
-                weightSum += weight * i;
-                
+            for (let i = 0; i < numSamples; i++) {
+                let senseVector = Vector.fromAngles(startAngle + incrAngle * i).multiply(distance);
+                let senseCoords = senseVector.add(this.position);
+                let weight = getColorRGB(senseCoords.x, senseCoords.y,bgCTX)[colorChannel] / 255;
+                if (!attract){weight = 1/weight;}
+                result = result.add(senseVector.multiply(weight));
             }
-            //ctx.stroke();
-            let result = startAngle + incrAngle * weightSum;
-            return Vector.fromAngles(result);
+            return result.unit();
         }
 
     }
@@ -186,13 +170,13 @@ function AntSimulator() {
         ctx.closePath();
         ctx.stroke();
     }
-
+    // Gets the color from the given drawing context at coordinates (x,y)
     function getColorRGB(x, y, context) {
         // Pixels are stored in a 1D array as 4 byte wide integers
         let pixel = context.getImageData(x,y,1,1).data;
         return [pixel[0],pixel[1],pixel[2]];
     }
-
+    // Converts 255 based rgb color to a hexcode string
     function RGBToHex(r, g, b) {
         r = r.toString(16);
         g = g.toString(16);
@@ -206,5 +190,26 @@ function AntSimulator() {
             b = "0" + b;
 
         return "#" + r + g + b;
+    }
+    // Paints a tiled version of the given image onto the bgCTX
+    function tileBackground(imgSrc){
+        let tiledBG = bgCTX.createPattern(imgSrc, "repeat");
+        bgCTX.fillStyle = tiledBG;
+        bgCTX.fillRect(0,0,w,h);
+    }
+    // Draws a radial gradient at (center) with radius = size, in the given [r,g,b] color
+    function drawGradientSpot(center, size, color){
+        let gradientFill = bgCTX.createRadialGradient(center.x,center.y,1, center.x,center.y,size);
+        gradientFill.addColorStop(0, `rgba(${color[0]},${color[1]},${color[2]},255)`);
+        gradientFill.addColorStop(1, `rgba(${color[0]},${color[1]},${color[2]},0)`);
+        bgCTX.fillStyle = gradientFill;
+        bgCTX.fillRect(0,0,w,h);
+    }
+    // Draws a colored spot onto the bgCTX
+    function drawSpot(center, size, color){
+        bgCTX.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},128)`;
+        bgCTX.beginPath();
+        bgCTX.arc(center.x, center.y, size, 0, Math.PI * 2);
+        bgCTX.fill();
     }
 }
