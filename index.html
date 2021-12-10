@@ -1,12 +1,53 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <link rel="stylesheet" href="style.css">
-    </head>
-    <body>
-        <canvas id="bgCanvas" style="z-index: 1;"></canvas>
-        <canvas id="antCanvas" style="z-index: 2;"></canvas>
-    </body>
-    <script src="vector.js"></script>
-    <script src="main.js"></script>
+
+<head>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="settingsBox" style="z-index: 4;">
+        <div id="settingsBoxHeader">
+            <img src="move_icon.png" id="moveIcon">
+            <h3>Mouse Settings</h3>
+
+            <label for="mouseStrength">Attract</label>
+            <input id="mouseStrengthRange" class="slider" type="range" name="mouseStrength" max="1000" min="-1000" value="0" step="50">
+            <span>Repel</span>
+
+            <h3>Ant Behaviour</h3>
+            <ul>
+                <li>
+                    <h5>
+                        Trail Following
+                    </h5>
+                    <label for="senseStrength">Attract</label>
+                    <input id="senseStrengthRange" class="slider" type="range" name="senseStrength" max="1" min="-1" value="-0.4" step="0.01">
+                    <span>Repel</span>
+                </li>
+                <li>
+                    <h5>Randomness</h5>
+                    <input id="randomnessRange" class="slider" type="range" name="senseStrength" max="1" min="0" value="0.2" step="0.01">
+                </li>
+                <li>
+                    <h5>Trail Fade Rate</h5>
+                    <input id="trailFadeRange" class="slider" type="range" name="trailFadeStrength" max="10" min="0" value="1" step="0.1">
+                </li>
+
+            </ul>
+            <h3>Environment</h3>
+            <ul>
+                <li>
+                    <h5>Coming soon!</h5>
+                </li>
+            </ul>
+
+        </div>
+    </div>
+    <canvas id="bgCanvas" style="z-index: 2;"></canvas>
+    <canvas id="antCanvas" style="z-index: 3;"></canvas>
+</body>
+<script src="vector.js"></script>
+<script src="main.js"></script>
+
 </html>
