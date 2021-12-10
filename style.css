@@ -18,6 +18,8 @@ canvas {
     color: seagreen;
     background-color: palegreen;
     position: absolute;
+    top: 30px;
+    left: 30px;
     padding: 20px;
     border-radius: 10px;
 }
