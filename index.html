@@ -6,7 +6,7 @@
 </head>
 
 <body>
-    <div id="settingsBox" style="z-index: 4;">
+    <div id="settingsBox" style="z-index: 10;">
         <div id="settingsBoxHeader">
             <img src="move_icon.png" id="moveIcon">
             <h3>Mouse Settings</h3>
@@ -38,14 +38,15 @@
             <h3>Environment</h3>
             <ul>
                 <li>
-                    <h5>Coming soon!</h5>
+                    <h5>Click and Drag to Draw Walls.</h5>
                 </li>
             </ul>
 
         </div>
     </div>
     <canvas id="bgCanvas" style="z-index: 2;"></canvas>
-    <canvas id="antCanvas" style="z-index: 3;"></canvas>
+    <canvas id="drawingCanvas" style="z-index: 3;"></canvas>
+    <canvas id="antCanvas" style="z-index: 4;"></canvas>
 </body>
 <script src="vector.js"></script>
 <script src="main.js"></script>
